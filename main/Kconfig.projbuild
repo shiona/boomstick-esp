@@ -1,0 +1,42 @@
+menu "Boomstick Configuration"
+
+    config WIFI_SSID
+        string "WiFi SSID"
+        default "myssid"
+        help
+            SSID (network name) for the example to connect to.
+
+    config WIFI_PASS
+        string "WiFi Password"
+        default "mypassword"
+        help
+            WiFi password (WPA or WPA2) for the example to use.
+
+    config WIFI_MAX_RETRY_COUNT
+        int "Maximum retry"
+        default 5
+        help
+            Set the Maximum retry to avoid station reconnecting to the AP unlimited when the AP is really inexistent.
+
+    config BUTTON_REPEAT_DELAY
+        int "Delay between resends in ms"
+        default 200
+        help
+            Holding down a button sends mqtt messages every BUTTON_REPEAT_DELAY milliseconds.
+
+    config MQTT_BROKER_URI
+        string "URI to MQTT broker."
+        default "mqtt://10.0.0.1"
+        help
+            Not just IP, but also the schema, for example mqtt://10.0.0.1"
+            URI may also contain other schemas, such as mqtts, ws and a port
+
+    config MQTT_USERNAME
+        string "Username for MQTT authentication"
+        default "username"
+
+    config MQTT_PASSWORD
+        string "Password for MQTT authentication"
+        default "password"
+
+endmenu
