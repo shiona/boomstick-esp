@@ -1,3 +1,5 @@
+#include "wifi.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "esp_event.h"
@@ -5,6 +7,8 @@
 #include "esp_netif.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
+
+#include "config.h"
 
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group;
@@ -15,12 +19,15 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-#define WIFI_MAX_RETRY_COUNT 5
+#define WIFI_MAX_RETRY_COUNT 2
 
 static const char *TAG = "wifi station";
 
 static int s_retry_num = 0;
 
+static wifi_config_t wifi_config;
+
+static bool ready = false;
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
@@ -28,6 +35,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        ready = false;
         if (s_retry_num < WIFI_MAX_RETRY_COUNT) {
             esp_wifi_connect();
             s_retry_num++;
@@ -37,6 +45,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         }
         ESP_LOGI(TAG,"connect to the AP fail");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ready = true;
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
@@ -68,20 +77,18 @@ esp_err_t wifi_init_sta(void)
                                                         NULL,
                                                         &instance_got_ip));
 
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = CONFIG_WIFI_SSID,
-            .password = CONFIG_WIFI_PASS,
-            /* Authmode threshold resets to WPA2 as default if password matches WPA2 standards (pasword len => 8).
-             * If you want to connect the device to deprecated WEP/WPA networks, Please set the threshold value
-             * to WIFI_AUTH_WEP/WIFI_AUTH_WPA_PSK and set the password with length and format matching to
-             * WIFI_AUTH_WEP/WIFI_AUTH_WPA_PSK standards.
-             */
-            .threshold.authmode = WIFI_AUTH_WPA2_PSK,
-            //.sae_pwe_h2e = ESP_WIFI_SAE_MODE,
-            //.sae_h2e_identifier = EXAMPLE_H2E_IDENTIFIER,
-        },
-    };
+    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    if (load_ssid(wifi_config.sta.ssid) != ESP_OK)
+    {
+        ESP_LOGW(TAG, "No ssid saved, not connecting");
+        return ESP_FAIL;
+    }
+    if (load_pass(wifi_config.sta.password) != ESP_OK)
+    {
+        ESP_LOGW(TAG, "No wlan password saved, not connecting");
+        return ESP_FAIL;
+    }
+
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
     ESP_ERROR_CHECK(esp_wifi_start() );
@@ -99,27 +106,18 @@ esp_err_t wifi_init_sta(void)
     /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
      * happened. */
     if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
-                 CONFIG_WIFI_SSID, CONFIG_WIFI_PASS);
+        ESP_LOGI(TAG, "connected to ap SSID: %s",
+                 wifi_config.sta.ssid);
     } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
-                 CONFIG_WIFI_SSID, CONFIG_WIFI_PASS);
+        ESP_LOGI(TAG, "Failed to connect to SSID: %s",
+                 wifi_config.sta.ssid);
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }
     return 0;
 }
 
-//void app_main(void)
-//{
-//    //Initialize NVS
-//    esp_err_t ret = nvs_flash_init();
-//    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-//      ESP_ERROR_CHECK(nvs_flash_erase());
-//      ret = nvs_flash_init();
-//    }
-//    ESP_ERROR_CHECK(ret);
-//
-//    ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
-//    wifi_init_sta();
-//}
+bool wifi_ready()
+{
+    return ready;
+}
