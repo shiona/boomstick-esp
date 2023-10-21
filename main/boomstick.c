@@ -5,8 +5,8 @@
 #include "esp_tls.h"
 #include "esp_sntp.h"
 #include "driver/gpio.h"
-#include "led_strip.h"
 
+#include "artnet.h"
 #include "config.h"
 #include "console.h"
 #include "wifi.h"
@@ -28,52 +28,10 @@ gpio_config_t boot_pin_io_config = {
     .intr_type = GPIO_INTR_DISABLE
 };
 
-#define LED_STRIP_GPIO 10
-
-led_strip_handle_t led_strip;
-static bool leds_initialized = false;
 static bool mqtt_connected = false;
-
-/* LED strip initialization with the GPIO and pixels number*/
-led_strip_config_t strip_config = {
-    .strip_gpio_num = LED_STRIP_GPIO, // The GPIO that connected to the LED strip's data line
-    .max_leds = LED_COUNT, // The number of LEDs in the strip,
-    .led_pixel_format = LED_PIXEL_FORMAT_GRB, // Pixel format of your LED strip
-    .led_model = LED_MODEL_WS2812, // LED strip model
-    .flags.invert_out = false, // whether to invert the output signal (useful when your hardware has a level inverter)
-};
-
-led_strip_rmt_config_t rmt_config = {
-    .clk_src = RMT_CLK_SRC_DEFAULT, // different clock source can lead to different power consumption
-    .resolution_hz = 10 * 1000 * 1000, // 10MHz
-    .flags.with_dma = false, // whether to enable the DMA feature
-};
 
 esp_mqtt_client_handle_t mqtt_client; // = esp_mqtt_client_init(&mqtt_cfg);
 esp_err_t wifi_init_sta(void);
-
-static void led_effect()
-{
-    if (!leds_initialized)
-        return;
-
-    for(int t = 0; t < 25; t++)
-    {
-        for(int i = 0; i < LED_COUNT; i++)
-        {
-            int r = ((LED_COUNT-i)*5+t) * 10;
-            if (r > 255) r = 0;
-            led_strip_set_pixel(led_strip, i, r, 0, 0);
-        }
-        led_strip_refresh(led_strip);
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-    }
-    for(int i = 0; i < LED_COUNT; i++)
-    {
-        led_strip_set_pixel(led_strip, i, 0, 0, 0);
-    }
-    led_strip_refresh(led_strip);
-}
 
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 {
@@ -103,7 +61,6 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             break;
         case MQTT_EVENT_DATA:
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-            led_effect();
             ESP_LOGI(TAG, "TOPIC=%.*s\r\n", event->topic_len, event->topic);
             ESP_LOGI(TAG, "DATA=%.*s\r\n", event->data_len, event->data);
             break;
@@ -185,14 +142,15 @@ void app_main(void)
     // Fails if can't connect, argument is incorrect or other problems.
     // Must not crash so user can configure the broker uri
     mqtt_start();
-    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
-    leds_initialized = true;
+
+    artnet_task_start();
 
     unsigned int last_time_button_sent = 0;
 
     esp_mqtt_client_publish(mqtt_client, "conn", MACHEX, 0, 1, 1);
     while(true)
     {
+        /*
         if (gpio_get_level(BUTTON_PIN) == 0)
         {
             unsigned int currTime = xTaskGetTickCount();
@@ -205,6 +163,7 @@ void app_main(void)
                 ESP_LOGI(TAG, "mqtt publish returned %d", res);
             }
         }
+        */
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 
