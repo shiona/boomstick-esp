@@ -18,15 +18,7 @@ static const char* TAG = "main";
 static unsigned char MAC[8];
 static char MACHEX[17];
 
-#define BUTTON_PIN 9
-
-gpio_config_t boot_pin_io_config = {
-    .pin_bit_mask = 1 << BUTTON_PIN,
-    .mode = GPIO_MODE_INPUT,
-    .pull_up_en = GPIO_PULLUP_DISABLE,
-    .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type = GPIO_INTR_DISABLE
-};
+static int32_t button_pin;
 
 static bool mqtt_connected = false;
 
@@ -102,7 +94,22 @@ esp_err_t mqtt_start(void)
 
 void gpio_init(void)
 {
-    ESP_ERROR_CHECK(gpio_config(&boot_pin_io_config));
+    if (load_button_pin(&button_pin) == ESP_OK && button_pin >= 0)
+    {
+        ESP_LOGI(TAG, "button pin: %d", (int)button_pin);
+        gpio_config_t boot_pin_io_config = {
+            .pin_bit_mask = 1 << button_pin,
+            .mode = GPIO_MODE_INPUT,
+            .pull_up_en = GPIO_PULLUP_ENABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE
+        };
+        ESP_ERROR_CHECK(gpio_config(&boot_pin_io_config));
+    }
+    else
+    {
+        button_pin = -1;
+    }
 }
 
 void get_mac(void)
@@ -150,8 +157,7 @@ void app_main(void)
     esp_mqtt_client_publish(mqtt_client, "conn", MACHEX, 0, 1, 1);
     while(true)
     {
-        /*
-        if (gpio_get_level(BUTTON_PIN) == 0)
+        if (button_pin >= 0 && gpio_get_level(button_pin) == 0)
         {
             unsigned int currTime = xTaskGetTickCount();
             if (currTime >= last_time_button_sent + pdMS_TO_TICKS(CONFIG_BUTTON_REPEAT_DELAY))
@@ -163,7 +169,6 @@ void app_main(void)
                 ESP_LOGI(TAG, "mqtt publish returned %d", res);
             }
         }
-        */
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 

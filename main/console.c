@@ -43,6 +43,11 @@ struct {
     struct arg_end *end;
 } led_rgb_arg;
 
+struct {
+    struct arg_int *pin;
+    struct arg_end *end;
+} button_arg;
+
 static const char* TAG = "console";
 
 static int wifi_handler(int argc, char** argv)
@@ -162,6 +167,27 @@ static int led_rgb_handler(int argc, char** argv)
     return 0;
 }
 
+static int button_handler(int argc, char** argv)
+{
+    if (argc == 1)
+    {
+        // TODO: Print set gpio pin
+        printf("configuration fetch not yet implmented\n");
+        return 0;
+    }
+
+    int err = arg_parse(argc, argv, (void**) &button_arg);
+    if (err)
+    {
+        arg_print_errors(stderr, button_arg.end, argv[0]);
+        return 1;
+    }
+
+    save_button_pin(button_arg.pin->ival[0]);
+
+    return 0;
+}
+
 static int reboot(int argc, char** argv)
 {
     esp_restart();
@@ -224,6 +250,18 @@ void register_custom_cmds()
         .argtable = &led_rgb_arg
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&led_rgb_cmd));
+
+    button_arg.pin = arg_int1(NULL, NULL, "<gpio pin>", "GPIO pin used for press button");
+    button_arg.end = arg_end(1);
+
+    const esp_console_cmd_t button_cmd = {
+        .command = "button",
+        .help = "Set the press button settings",
+        .hint = NULL,
+        .func = &button_handler,
+        .argtable = &button_arg
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&button_cmd));
 
     const esp_console_cmd_t reboot_cmd = {
         .command = "reboot",

@@ -252,12 +252,12 @@ bool handle_artnet(uint8_t *artnet_buf, size_t artnet_buf_len)
                 g >>= 7;
                 b >>= 7;
                 //ESP_LOGI(TAG, "doing single led, %.2d %.2d %.2d", r8,g8,b8);
-                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, g);
-                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
-                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, b);
-                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
                 ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, r);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, g);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, b);
                 ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
             }
         }
     }
