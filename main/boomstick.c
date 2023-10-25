@@ -7,6 +7,7 @@
 #include "driver/gpio.h"
 
 #include "artnet.h"
+#include "battery.h"
 #include "config.h"
 #include "console.h"
 #include "wifi.h"
@@ -135,6 +136,7 @@ void app_main(void)
 
 
     console_start();
+    battery_init();
 
     // Fails if can't connect. Must not crash, so user
     // can configure the creds
@@ -164,9 +166,12 @@ void app_main(void)
             {
                 last_time_button_sent = currTime;
                 char topic[64];
+                char data[64];
                 snprintf(topic, 64, "device/%s/%d", MACHEX, 1);
                 int res = esp_mqtt_client_publish(mqtt_client, topic, NULL, 0, 1, 1);
-                ESP_LOGI(TAG, "mqtt publish returned %d", res);
+                snprintf(topic, 64, "device/%s/battery", MACHEX);
+                snprintf(data, 64, "%d", battery_voltage_mv());
+                res = esp_mqtt_client_publish(mqtt_client, topic, data, 0, 0, 1);
             }
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);

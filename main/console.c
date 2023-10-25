@@ -10,6 +10,8 @@
 
 #include <string.h>
 
+#include "battery.h"
+
 struct {
     struct arg_str *ssid;
     struct arg_str *pass;
@@ -193,6 +195,12 @@ static int reboot(int argc, char** argv)
     esp_restart();
 }
 
+static int voltage_handler(int argc, char** argv)
+{
+    printf("%d\n", battery_voltage_mv());
+    return 0;
+}
+
 
 void register_custom_cmds()
 {
@@ -262,6 +270,15 @@ void register_custom_cmds()
         .argtable = &button_arg
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&button_cmd));
+
+    const esp_console_cmd_t voltage_cmd = {
+        .command = "voltage",
+        .help = "Query current battery voltage",
+        .hint = NULL,
+        .func = &voltage_handler,
+        .argtable = NULL
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&voltage_cmd));
 
     const esp_console_cmd_t reboot_cmd = {
         .command = "reboot",
