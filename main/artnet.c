@@ -70,31 +70,37 @@ static int init_led_strip()
     return 0;
 }
 
+#define LEDC_TIMER LEDC_TIMER_2
+#define LEDC_FREQ (3000)
+#define LEDC_CHANNEL_R LEDC_CHANNEL_1
+#define LEDC_CHANNEL_G LEDC_CHANNEL_3
+#define LEDC_CHANNEL_B LEDC_CHANNEL_5
+
 static int init_led_rgb()
 {
     ledc_timer_config_t ledc_timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
-        .timer_num  = LEDC_TIMER_0,
-        .duty_resolution = LEDC_TIMER_9_BIT,
-        .freq_hz         = 10000,
+        .timer_num  = LEDC_TIMER,
+        .duty_resolution = LEDC_TIMER_8_BIT,
+        .freq_hz         = LEDC_FREQ,
         .clk_cfg         = LEDC_AUTO_CLK,
     };
     ledc_timer_config(&ledc_timer);
 
     ledc_channel_config_t ledc_r_channel = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel    = LEDC_CHANNEL_0,
-        .timer_sel  = LEDC_TIMER_0,
+        .channel    = LEDC_CHANNEL_R,
+        .timer_sel  = LEDC_TIMER,
         .intr_type  = LEDC_INTR_DISABLE,
         .gpio_num   = -1,
         .duty       = 0,
-        .hpoint     = 0
+        .hpoint     = 50
     };
 
     ledc_channel_config_t ledc_g_channel = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel    = LEDC_CHANNEL_1,
-        .timer_sel  = LEDC_TIMER_0,
+        .channel    = LEDC_CHANNEL_G,
+        .timer_sel  = LEDC_TIMER,
         .intr_type  = LEDC_INTR_DISABLE,
         .gpio_num   = -1,
         .duty       = 0,
@@ -103,8 +109,8 @@ static int init_led_rgb()
 
     ledc_channel_config_t ledc_b_channel = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel    = LEDC_CHANNEL_2,
-        .timer_sel  = LEDC_TIMER_0,
+        .channel    = LEDC_CHANNEL_B,
+        .timer_sel  = LEDC_TIMER,
         .intr_type  = LEDC_INTR_DISABLE,
         .gpio_num   = -1,
         .duty       = 0,
@@ -248,16 +254,16 @@ bool handle_artnet(uint8_t *artnet_buf, size_t artnet_buf_len)
                 uint32_t r = led->r * led->i;
                 uint32_t g = led->g * led->i;
                 uint32_t b = led->b * led->i;
-                r >>= 7;
-                g >>= 7;
-                b >>= 7;
-                //ESP_LOGI(TAG, "doing single led, %.2d %.2d %.2d", r8,g8,b8);
-                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, r);
-                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, g);
-                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, b);
-                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
-                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
+                r >>= 8;
+                g >>= 8;
+                b >>= 8;
+                //ESP_LOGI(TAG, "doing single led, %.2"PRId32" %.2"PRId32" %.2"PRId32, r, g, b);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_G, g);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_B, b);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_R, r);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_G);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_B);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_R);
             }
         }
     }
