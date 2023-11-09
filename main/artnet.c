@@ -15,8 +15,6 @@
 #include "driver/ledc.h"
 #include "led_strip.h"
 
-#define LED_COUNT 5
-
 #define ARTNET_MAGIC_HEADER "Art-Net\0"
 #define ARTNET_MAGIC_HEADER_LEN 8
 
@@ -211,14 +209,13 @@ bool handle_artnet(uint8_t *artnet_buf, size_t artnet_buf_len)
     uint16_t opcode = artnet_buf[8] | artnet_buf[9] << 8;
     uint16_t protver = artnet_buf[10] << 8 | artnet_buf[11];
 
-    if (protver != 14)
-    {
-        ESP_LOGW(TAG, "Protocol version is not 14");
-        return false;
-    }
-
     if (opcode == 0x5000)
     {
+        if (protver != 14)
+        {
+            ESP_LOGW(TAG, "Protocol version is not 14, is %d", protver);
+            return false;
+        }
         //ESP_LOGI(TAG, "was light opcode");
         //uint8_t seq = (uint8_t)artnet_buf[12];
         //uint8_t phys = (uint8_t)artnet_buf[13];
@@ -237,13 +234,13 @@ bool handle_artnet(uint8_t *artnet_buf, size_t artnet_buf_len)
             //ESP_LOGI(TAG, "correct universe");
             if (led_type == LED_STRIP)
             {
-                //ESP_LOGI(TAG, "doing ledstrip with count %d", LED_COUNT);
-                for (int i = 0; i < LED_COUNT; i++)
+                ESP_LOGI(TAG, "doing ledstrip with count %"PRIu32, strip_config.max_leds);
+                for (int i = 0; i < strip_config.max_leds; i++)
                 {
                     struct led_rgbi *led = i + ((struct led_rgbi*) &artnet_buf[18 + artnet_first_channel]);
-                    uint8_t r = led->r * led->i / 256;
-                    uint8_t g = led->g * led->i / 256;
-                    uint8_t b = led->b * led->i / 256;
+                    uint8_t r = (led->r * led->i) >> 8;
+                    uint8_t g = (led->g * led->i) >> 8;
+                    uint8_t b = (led->b * led->i) >> 8;
                     led_strip_set_pixel(led_strip, i, r, g, b);
                 }
                 led_strip_refresh(led_strip);
