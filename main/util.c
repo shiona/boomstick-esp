@@ -5,7 +5,7 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 
-static char MACHEX[17];
+static char MACHEX[18];
 
 static const char *TAG = "UTIL";
 
@@ -20,6 +20,7 @@ static void mac_init(void)
         MACHEX[3*i-1] = ':';
         sprintf(&MACHEX[3*i], "%X", MAC[i]);
     }
+    MACHEX[17] = '\0';
     ESP_LOGI(TAG, "MACHEX: %s", MACHEX);
 }
 
