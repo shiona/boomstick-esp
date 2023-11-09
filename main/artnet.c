@@ -272,8 +272,27 @@ bool handle_artnet(uint8_t *artnet_buf, size_t artnet_buf_len)
     return true;
 };
 
+// This will block for one second
+static void show_ready(void)
+{
+    if (led_type == LED_STRIP)
+    {
+        led_strip_set_pixel(led_strip, 0, 0, 200, 0);
+        led_strip_refresh(led_strip);
+        vTaskDelay(pdMS_TO_TICKS(500));
+        led_strip_set_pixel(led_strip, 0, 0, 0, 0);
+        led_strip_refresh(led_strip);
+    }
+    else
+    {
+        ESP_LOGW(TAG, "No ledstrip for showing ready state");
+    }
+}
+
 static void artnet_worker(void *bogus)
 {
+    show_ready();
+
     // IPv4 isn't too long for this
     //char addr_str[32];
     uint8_t rx_buffer[2048];
