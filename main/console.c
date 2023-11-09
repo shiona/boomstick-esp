@@ -120,8 +120,17 @@ static int led_strip_handler(int argc, char** argv)
 {
     if (argc == 1)
     {
-        // TODO: Print universe, first chanel, led count and data pin
-        printf("configuration fetch not yet implmented\n");
+        int32_t universe, first_channel, led_count, led_pin, led_type;
+        load_led_type(&led_type);
+        load_artnet_universe(&universe);
+        load_artnet_first_channel(&first_channel);
+        load_strip_pin(&led_pin);
+        load_strip_led_count(&led_count);
+
+        if (led_type != LED_STRIP) {
+            printf("WARNING! Not in STRIP led mode!\n");
+        }
+        printf("artnet universe: %ld, pin: %ld, channels: %ld-%ld\n", universe, led_pin, first_channel, first_channel+ 4*led_count -1);
         return 0;
     }
 
@@ -146,8 +155,19 @@ static int led_rgb_handler(int argc, char** argv)
 {
     if (argc == 1)
     {
+        int32_t r_pin, g_pin, b_pin, universe, first_channel, led_type;
         // TODO: Print universe, first chanel and r, g and b pins
-        printf("configuration fetch not yet implmented\n");
+        load_led_type(&led_type);
+        load_artnet_universe(&universe);
+        load_artnet_first_channel(&first_channel);
+        load_r_pin(&r_pin);
+        load_g_pin(&g_pin);
+        load_b_pin(&b_pin);
+        if (led_type != LED_RGB) {
+            printf("WARNING! Not in RGB led mode!\n");
+        }
+        printf("artnet universe: %ld, channels: %ld-%ld\n", universe, first_channel, first_channel+3);
+        printf("r_pin: %ld, g_pin: %ld, b_pin: %ld\n", r_pin, g_pin, b_pin);
         return 0;
     }
 
@@ -173,8 +193,11 @@ static int button_handler(int argc, char** argv)
 {
     if (argc == 1)
     {
+        int32_t tmp;
+        load_button_pin(&tmp);
+
         // TODO: Print set gpio pin
-        printf("configuration fetch not yet implmented\n");
+        printf("button configure on GPIO pin %"PRId32"\n", tmp);
         return 0;
     }
 
