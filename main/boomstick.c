@@ -5,11 +5,13 @@
 #include "esp_tls.h"
 #include "esp_sntp.h"
 #include "driver/gpio.h"
+#include "freertos/timers.h"
 
 #include "artnet.h"
 #include "battery.h"
 #include "config.h"
 #include "console.h"
+#include "npp.h"
 #include "util.h"
 #include "wifi.h"
 
@@ -24,6 +26,57 @@ static bool mqtt_connected = false;
 
 esp_mqtt_client_handle_t mqtt_client; // = esp_mqtt_client_init(&mqtt_cfg);
 esp_err_t wifi_init_sta(void);
+
+static TimerHandle_t battery_timer;
+static StaticTimer_t battery_timer_buffer;
+static bool battery_timer_initialized = false;
+
+static void battery_timer_callback(TimerHandle_t xTimer)
+{
+    if (npp_connected()) {
+        npp_send_voltage(battery_voltage_mv());
+    }
+}
+
+static void battery_timer_init(void)
+{
+        battery_timer = xTimerCreateStatic
+                  ( /* Just a text name, not used by the RTOS
+                    kernel. */
+                    "Battery timer",
+                    /* The timer period in ticks. 5 minutes */
+                    //pdMS_TO_TICKS(5 * 60 * 1000),
+                    pdMS_TO_TICKS(5 * 1000),
+                    /* The timer will auto-reload */
+                    pdTRUE,
+                    /* The ID is used to store a count of the
+                    number of times the timer has expired, which
+                    is initialised to 0. */
+                    ( void * ) 0,
+                    /* Each timer calls the same callback when
+                    it expires. */
+                    battery_timer_callback,
+                    /* Pass in the address of a StaticTimer_t
+                    variable, which will hold the data associated with
+                    the timer being created. */
+                    &( battery_timer_buffer )
+                  );
+        battery_timer_initialized = true;
+}
+
+
+static void battery_timer_start(void)
+{
+    if (battery_timer_initialized) {
+        xTimerStart(battery_timer, 0);
+    }
+}
+
+static void battery_timer_stop(void)
+{
+    xTimerStop(battery_timer, 0);
+}
+
 
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 {
@@ -41,6 +94,7 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_DISCONNECTED:
             mqtt_connected = false;
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
+            battery_timer_stop();
             break;
 
         case MQTT_EVENT_SUBSCRIBED:
@@ -120,9 +174,9 @@ void app_main(void)
     util_init();
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-
     console_start();
     battery_init();
+    battery_timer_init();
 
     // Fails if can't connect. Must not crash, so user
     // can configure the creds
@@ -136,28 +190,26 @@ void app_main(void)
     gpio_init();
     // Fails if can't connect, argument is incorrect or other problems.
     // Must not crash so user can configure the broker uri
-    mqtt_start();
+    //mqtt_start();
+    npp_task_start();
+
+    battery_timer_start();
 
     artnet_task_start();
 
     unsigned int last_time_button_sent = 0;
 
-    esp_mqtt_client_publish(mqtt_client, "conn", MACHEX, 0, 1, 1);
     while(true)
     {
         if (button_pin >= 0 && gpio_get_level(button_pin) == 0)
         {
-            unsigned int currTime = xTaskGetTickCount();
-            if (currTime >= last_time_button_sent + pdMS_TO_TICKS(CONFIG_BUTTON_REPEAT_DELAY))
-            {
-                last_time_button_sent = currTime;
-                char topic[64];
-                char data[64];
-                snprintf(topic, 64, "device/%s/%d", MACHEX, 1);
-                int res = esp_mqtt_client_publish(mqtt_client, topic, NULL, 0, 1, 1);
-                snprintf(topic, 64, "device/%s/battery", MACHEX);
-                snprintf(data, 64, "%d", battery_voltage_mv());
-                res = esp_mqtt_client_publish(mqtt_client, topic, data, 0, 0, 1);
+            if (npp_connected()) {
+                unsigned int currTime = xTaskGetTickCount();
+                if (currTime >= last_time_button_sent + pdMS_TO_TICKS(CONFIG_BUTTON_REPEAT_DELAY))
+                {
+                    last_time_button_sent = currTime;
+                    npp_send_button_press();
+                }
             }
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);
