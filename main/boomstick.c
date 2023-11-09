@@ -10,14 +10,13 @@
 #include "battery.h"
 #include "config.h"
 #include "console.h"
+#include "util.h"
 #include "wifi.h"
 
 #define LED_COUNT 5
 
 static const char* TAG = "main";
 
-static unsigned char MAC[8];
-static char MACHEX[17];
 
 static int32_t button_pin;
 
@@ -33,9 +32,10 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             mqtt_connected = true;
-            sprintf(topic, "device/%s/color", MACHEX);
+            sprintf(topic, "device/%s/color", get_mac());
             ESP_LOGI(TAG, "Subscribing to \"%s\"", topic);
             esp_mqtt_client_subscribe(mqtt_client, topic, 1);
+            esp_mqtt_client_publish(mqtt_client, "conn", get_mac(), 0, 1, 1);
 
             break;
         case MQTT_EVENT_DISCONNECTED:
@@ -113,25 +113,11 @@ void gpio_init(void)
     }
 }
 
-void get_mac(void)
-{
-    ESP_ERROR_CHECK(esp_efuse_mac_get_default(MAC));
-    sprintf(MACHEX, "%X", MAC[0]);
-    unsigned int len = strlen((char*)MAC);
-    for(int i = 1; i < len; i++)
-    {
-        MACHEX[3*i-1] = ':';
-        sprintf(&MACHEX[3*i], "%X", MAC[i]);
-    }
-    ESP_LOGI(TAG, "MACHEX: %s", MACHEX);
-}
-
-
 void app_main(void)
 {
 
     ESP_ERROR_CHECK(nvs_flash_init());
-    get_mac();
+    util_init();
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
 
