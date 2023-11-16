@@ -19,7 +19,7 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-#define WIFI_MAX_RETRY_COUNT 2
+#define WIFI_RETRY_PERIOD_MS (10000)
 
 static const char *TAG = "wifi station";
 
@@ -36,14 +36,11 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         ready = false;
-        if (s_retry_num < WIFI_MAX_RETRY_COUNT) {
-            esp_wifi_connect();
-            s_retry_num++;
-            ESP_LOGI(TAG, "retry to connect to the AP");
-        } else {
-            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-        }
-        ESP_LOGI(TAG,"connect to the AP fail");
+        ESP_LOGI(TAG, "Waiting %d ms before retrying wlan connect", WIFI_RETRY_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(WIFI_RETRY_PERIOD_MS));
+        esp_wifi_connect();
+        // Allow the init to finish even if the connection did not finish correctly yet.
+        xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ready = true;
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
